@@ -1,6 +1,6 @@
 {
   "name": "next2tanstack",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Codemod for migrating Next.js App Router projects to TanStack Start",
   "type": "module",
   "scripts": {
