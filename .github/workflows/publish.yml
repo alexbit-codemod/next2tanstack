@@ -3,11 +3,8 @@ on:
   push:
     tags:
       - "v*"
-
-permissions:
-  id-token: write
-  contents: read
-
+  workflow_dispatch:
+    
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -28,4 +25,4 @@ jobs:
         run: npx codemod login --api-key ${{ secrets.CODEMOD_API_KEY }}
 
       - name: Publish codemod
-        uses: codemod/publish-action@v1
+        run: npx codemod publish
