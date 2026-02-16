@@ -1,6 +1,6 @@
 import type { Edit, Transform } from "codemod:ast-grep";
 import type TSX from "codemod:ast-grep/langs/tsx";
-import * as fsp from "node:fs/promises";
+import * as fsp from "fs/promises";
 import { nextImageTransform } from "../transforms/next-image.ts";
 import { nextLinkTransform } from "../transforms/next-link.ts";
 import { nextServerFunctionTransform } from "../transforms/next-server-actions.ts";
