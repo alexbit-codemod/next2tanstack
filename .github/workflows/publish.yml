@@ -14,5 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate YAML line endings (LF only)
+        shell: bash
+        run: |
+          matches="$(git grep -nI $'\r' -- '*.yml' '*.yaml' || true)"
+          if [ -n "$matches" ]; then
+            echo "Found CRLF/control characters in YAML files:"
+            echo "$matches"
+            exit 1
+          fi
+
       - name: Publish codemod
         uses: codemod/publish-action@v1

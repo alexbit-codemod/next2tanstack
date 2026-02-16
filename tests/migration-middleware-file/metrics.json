@@ -1,0 +1,18 @@
+{
+  "migration-impact": [
+    {
+      "cardinality": {
+        "bucket": "manual",
+        "effort": "high"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "bucket": "manual",
+        "effort": "medium"
+      },
+      "count": 1
+    }
+  ]
+}

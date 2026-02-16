@@ -1,0 +1,10 @@
+{
+  "migration-impact": [
+    {
+      "cardinality": {
+        "bucket": "blocked"
+      },
+      "count": 1
+    }
+  ]
+}

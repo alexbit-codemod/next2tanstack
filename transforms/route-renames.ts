@@ -1,5 +1,8 @@
 import type { Edit } from "codemod:ast-grep";
 import type { SubTranform } from "../types/index.js";
+import { useMetricAtom } from "codemod:metrics";
+
+const migrationMetric = useMetricAtom("migration-impact");
 
 export const nextToTanstackFileStructureTransform: SubTranform = async (
   root,
@@ -20,6 +23,7 @@ export const nextToTanstackFileStructureTransform: SubTranform = async (
   }
 
   if (shouldSkipAutomaticRouteTransform(effectiveFilename)) {
+    migrationMetric.increment({ bucket: "blocked" });
     return null;
   }
 
@@ -67,6 +71,7 @@ export const nextToTanstackFileStructureTransform: SubTranform = async (
 
 ${buildRouteComponent(name, props, body, isAsync)}`;
 
+      migrationMetric.increment({ bucket: "automated", effort: "medium" });
       edits.push(defaultExport.replace(tanstackRoute));
     }
 
@@ -92,6 +97,7 @@ ${buildRouteComponent(name, props, body, isAsync)}`;
 
 ${buildRouteComponent("RouteComponent", props, body, false)}`;
 
+      migrationMetric.increment({ bucket: "automated", effort: "medium" });
       edits.push(arrowExport.replace(tanstackRoute));
     }
   }
@@ -143,6 +149,7 @@ ${buildRouteComponent(
   isAsync,
 )}`;
 
+        migrationMetric.increment({ bucket: "automated", effort: "medium" });
         edits.push(layoutExport.replace(rootRoute));
       } else {
         tanstackImportSpecifiers.add("createFileRoute");
@@ -161,6 +168,7 @@ ${buildRouteComponent(
   isAsync,
 )}`;
 
+        migrationMetric.increment({ bucket: "automated", effort: "medium" });
         edits.push(layoutExport.replace(layoutRoute));
       }
     }
@@ -195,6 +203,7 @@ ${buildRouteComponent(
 
 ${buildRouteComponent("PendingComponent", "", body, isAsync)}`;
 
+      migrationMetric.increment({ bucket: "automated", effort: "medium" });
       edits.push(loadingExport.replace(pendingComponent));
     }
   }
@@ -230,6 +239,7 @@ ${buildRouteComponent("PendingComponent", "", body, isAsync)}`;
 
 ${buildRouteComponent("RouteErrorComponent", props, body, isAsync)}`;
 
+      migrationMetric.increment({ bucket: "automated", effort: "medium" });
       edits.push(errorExport.replace(errorComponent));
     }
   }
@@ -263,6 +273,7 @@ ${buildRouteComponent("RouteErrorComponent", props, body, isAsync)}`;
 
 ${buildRouteComponent("NotFoundComponent", "", body, isAsync)}`;
 
+      migrationMetric.increment({ bucket: "automated", effort: "medium" });
       edits.push(notFoundExport.replace(notFoundComponent));
     }
   }
@@ -287,6 +298,7 @@ ${buildRouteComponent("NotFoundComponent", "", body, isAsync)}`;
     if (templateExport) {
       const templateText = templateExport.text();
       if (!templateText.includes("TODO: Next.js template.tsx")) {
+        migrationMetric.increment({ bucket: "manual", effort: "high" });
         edits.push(
           templateExport.replace(
             `// TODO: Next.js template.tsx has no direct TanStack Start equivalent. Migrate manually.
@@ -532,7 +544,7 @@ ${indent(body, 2)}
 
 function parseImportSpecifiers(importText: string): string[] {
   const match = importText.match(/\{([^}]*)\}/);
-  if (!match) return [];
+  if (!match?.[1]) return [];
   return match[1]
     .split(",")
     .map((s) => s.trim())
@@ -663,6 +675,7 @@ export const Route = createFileRoute('${calculateTanstackRoute(filename)}')({
   component: ${groupName}Layout,
 })`;
 
+          migrationMetric.increment({ bucket: "automated", effort: "medium" });
           edits.push(layoutExport.replace(pathlessLayout));
         }
       }
@@ -678,6 +691,7 @@ export const Route = createFileRoute('${calculateTanstackRoute(filename)}')({
     ) {
       const firstExport = rootNode.find({ rule: { kind: "export_statement" } });
       if (firstExport) {
+        migrationMetric.increment({ bucket: "manual", effort: "high" });
         edits.push(
           firstExport.replace(
             `// TODO: Parallel routes @folder need manual migration

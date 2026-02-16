@@ -1,5 +1,8 @@
 import type { Edit } from "codemod:ast-grep";
 import type { SubTranform } from "../types/index.js";
+import { useMetricAtom } from "codemod:metrics";
+
+const migrationMetric = useMetricAtom("migration-impact");
 
 type ImportBinding = {
   imported: string;
@@ -16,20 +19,23 @@ export const nextManualMigrationTodoTransform: SubTranform = async (root) => {
   const lineComments = new Map<any, Set<string>>();
   const topLevelTodos: string[] = [];
 
-  const queueLineTodo = (node: any, message: string) => {
+  type Effort = "low" | "medium" | "high";
+  const queueLineTodo = (node: any, message: string, effort: Effort) => {
     if (!node) return;
     const anchor = getCommentAnchor(node);
     if (!anchor) return;
     const todo = `${TODO_PREFIX} ${message}`;
     if (anchor.text().includes(todo)) return;
+    migrationMetric.increment({ bucket: "manual", effort });
     const existing = lineComments.get(anchor) ?? new Set<string>();
     existing.add(todo);
     lineComments.set(anchor, existing);
   };
 
-  const queueTopTodo = (message: string) => {
+  const queueTopTodo = (message: string, effort: Effort) => {
     const todo = `${TODO_PREFIX} ${message}`;
     if (!source.includes(todo) && !topLevelTodos.includes(todo)) {
+      migrationMetric.increment({ bucket: "manual", effort });
       topLevelTodos.push(todo);
     }
   };
@@ -52,6 +58,7 @@ export const nextManualMigrationTodoTransform: SubTranform = async (root) => {
           queueLineTodo(
             usage,
             `manual migration required for \`${symbol}()\`; map to TanStack Start/Query caching strategy.`,
+            "medium",
           );
         }
       }
@@ -70,6 +77,7 @@ export const nextManualMigrationTodoTransform: SubTranform = async (root) => {
           queueLineTodo(
             usage,
             `manual migration required for \`${symbol}()\` outside server actions.`,
+            "medium",
           );
         }
       }
@@ -89,6 +97,7 @@ export const nextManualMigrationTodoTransform: SubTranform = async (root) => {
         queueLineTodo(
           usageNode.parent() ?? usageNode,
           `manual migration required for \`${symbol}\` usage outside server actions.`,
+          "medium",
         );
       }
     }
@@ -112,6 +121,7 @@ export const nextManualMigrationTodoTransform: SubTranform = async (root) => {
             queueLineTodo(
               usage,
               `manual migration required for \`${symbol}()\` in non-route context.`,
+              "low",
             );
           }
         }
@@ -132,6 +142,7 @@ export const nextManualMigrationTodoTransform: SubTranform = async (root) => {
             queueLineTodo(
               usage,
               `manual migration required for \`${symbol}()\` in client component.`,
+              "medium",
             );
           }
         }
@@ -142,12 +153,14 @@ export const nextManualMigrationTodoTransform: SubTranform = async (root) => {
   if (hasMetadataOrSeoPatterns(rootNode)) {
     queueTopTodo(
       "metadata/SEO exports detected (`metadata`, `generateMetadata`, `viewport`, `sitemap`, `robots`, or `next/og`); migrate manually.",
+      "high",
     );
   }
 
   if (isMiddlewareOrEdgeRuntimeFile(rootNode, filename)) {
     queueTopTodo(
       "middleware/edge runtime pattern detected; manual migration required for TanStack Start runtime semantics.",
+      "high",
     );
   }
 
@@ -155,6 +168,7 @@ export const nextManualMigrationTodoTransform: SubTranform = async (root) => {
   if (configKeys.length > 0) {
     queueTopTodo(
       `next.config semantics detected (${configKeys.join(", ")}); migrate these settings manually.`,
+      "high",
     );
   }
 

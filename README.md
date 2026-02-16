@@ -172,6 +172,8 @@ Notes:
 
 This project is a deterministic codemod for Next.js -> TanStack migration. It is intentionally biased toward safe, incremental changes and leaves ambiguous or high-risk rewrites for manual follow-up.
 
+source code: [Github](https://github.com/NerdBoi008/next2tanstack)
+
 ## Credits
 
 - Official Codemod platform and team: [codemod.com](https://codemod.com/)

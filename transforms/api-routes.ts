@@ -1,5 +1,8 @@
 import type { Edit } from "codemod:ast-grep";
 import type { SubTranform } from "../types/index.js";
+import { useMetricAtom } from "codemod:metrics";
+
+const migrationMetric = useMetricAtom("migration-impact");
 
 export const nextApiRouteTransform: SubTranform = async (root) => {
   const rootNode = root.root();
@@ -222,9 +225,13 @@ ${handlersCode}
   // Insert route where the first handler was to avoid import conflicts
   const firstHandler = methodHandlers[0]?.node;
   if (firstHandler) {
+    for (const _ of methodHandlers) {
+      migrationMetric.increment({ bucket: "automated", effort: "medium" });
+    }
     edits.push(firstHandler.replace(tanstackRoute));
     for (let i = 1; i < methodHandlers.length; i += 1) {
-      edits.push(methodHandlers[i].node.replace(""));
+      const handler = methodHandlers[i];
+      if (handler) edits.push(handler.node.replace(""));
     }
   }
 
