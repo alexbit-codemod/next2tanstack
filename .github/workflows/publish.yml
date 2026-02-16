@@ -4,12 +4,17 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
-    
+
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Normalize YAML line endings to LF
+        shell: bash
+        run: |
+          find . -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 | xargs -0 sed -i 's/\r$//'
 
       - name: Validate YAML line endings (LF only)
         shell: bash
