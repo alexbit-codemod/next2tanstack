@@ -60,62 +60,61 @@ function renderReadableSummary(): void {
   if (summaryPrinted) return;
   summaryPrinted = true;
 
-    const entries = migrationImpactMetric.getEntries();
-    if (!entries.length) return;
+  const entries = migrationImpactMetric.getEntries();
+  if (!entries.length) return;
 
-    let automatedLow = 0;
-    let automatedMedium = 0;
-    let automatedHigh = 0;
-    let manualLow = 0;
-    let manualMedium = 0;
-    let manualHigh = 0;
-    let blocked = 0;
+  let automatedLow = 0;
+  let automatedMedium = 0;
+  let automatedHigh = 0;
+  let manualLow = 0;
+  let manualMedium = 0;
+  let manualHigh = 0;
+  let blocked = 0;
 
-    for (const entry of entries) {
-      const cardinality = entry.cardinality ?? {};
-      const bucket = cardinality.bucket;
-      const effort = cardinality.effort;
-      const count = Number(entry.count || 0);
+  for (const entry of entries) {
+    const cardinality = entry.cardinality ?? {};
+    const bucket = cardinality.bucket;
+    const effort = cardinality.effort;
+    const count = Number(entry.count || 0);
 
-      if (bucket === "blocked") blocked += count;
-      if (bucket === "automated" && effort === "low") automatedLow += count;
-      if (bucket === "automated" && effort === "medium")
-        automatedMedium += count;
-      if (bucket === "automated" && effort === "high") automatedHigh += count;
-      if (bucket === "manual" && effort === "low") manualLow += count;
-      if (bucket === "manual" && effort === "medium") manualMedium += count;
-      if (bucket === "manual" && effort === "high") manualHigh += count;
-    }
+    if (bucket === "blocked") blocked += count;
+    if (bucket === "automated" && effort === "low") automatedLow += count;
+    if (bucket === "automated" && effort === "medium") automatedMedium += count;
+    if (bucket === "automated" && effort === "high") automatedHigh += count;
+    if (bucket === "manual" && effort === "low") manualLow += count;
+    if (bucket === "manual" && effort === "medium") manualMedium += count;
+    if (bucket === "manual" && effort === "high") manualHigh += count;
+  }
 
-    const effortSavedHours =
-      automatedLow * 0.25 + automatedMedium * 1 + automatedHigh * 4;
-    const effortRemainingHours =
-      manualLow * 0.25 + manualMedium * 1 + manualHigh * 4;
-    const totalEffortHours = effortSavedHours + effortRemainingHours;
-    const automatedPercent =
-      totalEffortHours > 0 ? (effortSavedHours / totalEffortHours) * 100 : 0;
+  const effortSavedHours =
+    automatedLow * 0.25 + automatedMedium * 1 + automatedHigh * 4;
+  const effortRemainingHours =
+    manualLow * 0.25 + manualMedium * 1 + manualHigh * 4;
+  const totalEffortHours = effortSavedHours + effortRemainingHours;
+  const automatedPercent =
+    totalEffortHours > 0 ? (effortSavedHours / totalEffortHours) * 100 : 0;
 
-    const unmodifiedFiles = Math.max(totalFilesSeen - modifiedFiles, 0);
+  const unmodifiedFiles = Math.max(totalFilesSeen - modifiedFiles, 0);
 
-    console.log("\n=====================");
-    console.log(`📝 Modified files: ${modifiedFiles}`);
-    console.log(`✅ Unmodified files: ${unmodifiedFiles}`);
-    console.log("❌ Files with errors: 0");
-    console.log("");
-    console.log("Derived (e.g. low=0.25h, medium=1h, high=4h):");
-    console.log(
-      ` - Effort saved: ${formatHours(effortSavedHours)}h (${automatedLow}xlow + ${automatedMedium}xmedium + ${automatedHigh}xhigh)`,
-    );
-    console.log(
-      ` - Effort remaining: ${formatHours(effortRemainingHours)}h (${manualLow}xlow + ${manualMedium}xmedium + ${manualHigh}xhigh)`,
-    );
-    console.log(
-      ` - % effort automated: ${Math.round(automatedPercent)}% (${formatHours(
-        effortSavedHours,
-      )} / ${formatHours(totalEffortHours)}h)`,
-    );
-    console.log(` - Blocked: ${blocked} items need investigation`);
-    console.log("=====================\n");
+  console.log("\n=====================");
+  console.log(`✓ Modified files: ${modifiedFiles}`);
+  console.log(`• Unmodified files: ${unmodifiedFiles}`);
+  console.log("• Files with errors: 0");
+  console.log("");
+  console.log("Derived (e.g. low=0.25h, medium=1h, high=4h):");
+  console.log(
+    ` - Effort saved: ${formatHours(effortSavedHours)}h (${automatedLow}xlow + ${automatedMedium}xmedium + ${automatedHigh}xhigh)`,
+  );
+  console.log(
+    ` - Effort remaining: ${formatHours(effortRemainingHours)}h (${manualLow}xlow + ${manualMedium}xmedium + ${manualHigh}xhigh)`,
+  );
+  console.log(
+    ` - % effort automated: ${Math.round(automatedPercent)}% (${formatHours(
+      effortSavedHours,
+    )} / ${formatHours(totalEffortHours)}h)`,
+  );
+  console.log(` - Blocked: ${blocked} items need investigation`);
+  console.log("=====================\n");
 }
 
 function printReadableSummaryOnce(): void {
@@ -127,7 +126,10 @@ function printReadableSummaryOnce(): void {
   };
 
   const runtimeProcess = globalThis.process as
-    | { once?: (event: string, cb: () => void) => void; on?: (event: string, cb: () => void) => void }
+    | {
+        once?: (event: string, cb: () => void) => void;
+        on?: (event: string, cb: () => void) => void;
+      }
     | undefined;
   if (runtimeProcess && typeof runtimeProcess.once === "function") {
     runtimeProcess.once("beforeExit", onExit);
