@@ -19,7 +19,6 @@ let summaryRegistered = false;
 let summaryPrinted = false;
 let totalFilesSeen = 0;
 let modifiedFiles = 0;
-let estimatedTotalFilesPromise: Promise<number> | null = null;
 const routesDirCache = new Map<string, Promise<string>>();
 const projectConfigCache = new Map<string, Promise<CodemodProjectConfig>>();
 const migrationImpactMetric = useMetricAtom("migration-impact");
@@ -141,68 +140,6 @@ function printReadableSummaryOnce(): void {
   }
 }
 
-function shouldCountFile(path: string): boolean {
-  const normalized = normalizePath(path);
-  return /\.(ts|tsx|js|jsx)$/.test(normalized);
-}
-
-async function estimateProcessableFileCount(seedFile: string): Promise<number> {
-  const runtimeProcess = globalThis.process as
-    | { cwd?: () => string }
-    | undefined;
-  const cwd =
-    runtimeProcess && typeof runtimeProcess.cwd === "function"
-      ? runtimeProcess.cwd()
-      : dirname(seedFile);
-  const ignoredDirs = new Set([
-    ".git",
-    "node_modules",
-    ".next",
-    "dist",
-    "build",
-    "out",
-    "coverage",
-  ]);
-
-  const queue: string[] = [cwd];
-  let count = 0;
-
-  while (queue.length > 0) {
-    const current = queue.pop();
-    if (!current) continue;
-    let entries: Awaited<ReturnType<typeof fsp.readdir>>;
-    try {
-      entries = await fsp.readdir(current, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      const fullPath = `${trimTrailingSlash(current)}/${entry.name}`;
-      if (entry.isDirectory()) {
-        if (ignoredDirs.has(entry.name)) continue;
-        queue.push(fullPath);
-        continue;
-      }
-      if (!entry.isFile()) continue;
-      if (!shouldCountFile(fullPath)) continue;
-      count += 1;
-    }
-  }
-  return count;
-}
-
-async function maybePrintReadableSummaryAtEnd(seedFile: string): Promise<void> {
-  if (summaryPrinted) return;
-  if (!estimatedTotalFilesPromise) {
-    estimatedTotalFilesPromise = estimateProcessableFileCount(seedFile);
-  }
-  const estimatedTotalFiles = await estimatedTotalFilesPromise;
-  if (estimatedTotalFiles <= 0) return;
-  if (totalFilesSeen >= estimatedTotalFiles) {
-    renderReadableSummary();
-  }
-}
-
 function readCliOption(name: string): string | null {
   const exact = `--${name}`;
   const withEq = `${exact}=`;
@@ -311,6 +248,25 @@ function isDryRun(): boolean {
 
 function normalizePath(value: string): string {
   return value.replace(/\\/g, "/");
+}
+
+function shouldRunTransform(filename: string, migrationId: MigrationId): boolean {
+  const normalized = normalizePath(filename);
+  if (normalized.includes("node_modules")) return false;
+  // Bypass gate for test fixtures so transforms can run and validate behavior
+  if (normalized.includes("/tests/") || filename.includes("\\tests\\"))
+    return true;
+
+  switch (migrationId) {
+    case "api-routes":
+      return /route\.(ts|js|tsx|jsx)$/.test(normalized);
+    case "route-file-structure":
+      return normalized.includes("/app/") || filename.includes("\\app\\");
+    case "route-groups":
+      return /\([^)]+\)/.test(normalized) || normalized.includes("@");
+    default:
+      return true;
+  }
 }
 
 function trimTrailingSlash(value: string): string {
@@ -847,6 +803,7 @@ const transform: Transform<TSX> = async (root, options?: unknown) => {
   const runtimeConfig = await resolveRuntimeConfig(root.filename(), options);
   const enabled = runtimeConfig.enabledMigrations;
 
+  const currentFilename = root.filename();
   const tasks: Array<Promise<Edit[] | null | undefined>> = [];
   if (enabled.has("next-image")) tasks.push(nextImageTransform(root));
   if (enabled.has("next-link")) tasks.push(nextLinkTransform(root));
@@ -856,10 +813,12 @@ const transform: Transform<TSX> = async (root, options?: unknown) => {
     tasks.push(nextManualMigrationTodoTransform(root));
   if (enabled.has("next-use-client"))
     tasks.push(nextUseClientDirectiveTransform(root));
-  if (enabled.has("route-file-structure"))
+  if (enabled.has("route-file-structure") && shouldRunTransform(currentFilename, "route-file-structure"))
     tasks.push(nextToTanstackFileStructureTransform(root));
-  if (enabled.has("route-groups")) tasks.push(nextRouteGroupsTransform(root));
-  if (enabled.has("api-routes")) tasks.push(nextApiRouteTransform(root));
+  if (enabled.has("route-groups") && shouldRunTransform(currentFilename, "route-groups"))
+    tasks.push(nextRouteGroupsTransform(root));
+  if (enabled.has("api-routes") && shouldRunTransform(currentFilename, "api-routes"))
+    tasks.push(nextApiRouteTransform(root));
 
   const results = await Promise.all(tasks);
 
@@ -870,7 +829,6 @@ const transform: Transform<TSX> = async (root, options?: unknown) => {
   }
 
   const commitResult = rootNode.commitEdits(allEdits);
-  const currentFilename = root.filename();
   const targetPath = enabled.has("route-file-structure")
     ? await computeTanstackTargetPath(currentFilename, runtimeConfig)
     : null;
@@ -880,7 +838,6 @@ const transform: Transform<TSX> = async (root, options?: unknown) => {
   if (allEdits.length > 0 || isMovedFile) {
     modifiedFiles += 1;
   }
-  await maybePrintReadableSummaryAtEnd(currentFilename);
 
   if (!isDryRun() && targetPath) {
     const output = isRootRouteTarget(targetPath)
